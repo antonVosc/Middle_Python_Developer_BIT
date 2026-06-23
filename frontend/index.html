@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DocFlow - Реестры платежей</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f5f5f5;
+      color: #1a1a1a;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #1e293b;
+      color: white;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header h1 {
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    header span {
+      font-size: 13px;
+      color: #94a3b8;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .drop-zone {
+      border: 2px dashed #cbd5e1;
+      border-radius: 12px;
+      background: white;
+      padding: 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      margin-bottom: 24px;
+    }
+
+    .drop-zone.dragover {
+      border-color: #3b82f6;
+      background: #eff6ff;
+    }
+
+    .drop-zone p {
+      color: #64748b;
+      margin-top: 8px;
+      font-size: 14px;
+    }
+
+    .drop-zone strong {
+      color: #1e293b;
+      font-size: 16px;
+    }
+
+    #file-input {
+      display: none;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .btn-primary {
+      background: #3b82f6;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #2563eb;
+    }
+
+    .btn-sm {
+      padding: 4px 10px;
+      font-size: 12px;
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 12px;
+      margin-top: 24px;
+    }
+
+    .files-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    .file-card {
+      background: white;
+      border-radius: 10px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .file-card .name {
+      flex: 1;
+      font-size: 14px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .file-card .meta {
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .badge-pending {
+      background: #f1f5f9;
+      color: #64748b;
+    }
+
+    .badge-processing {
+      background: #eff6ff;
+      color: #3b82f6;
+    }
+
+    .badge-done {
+      background: #f0fdf4;
+      color: #16a34a;
+    }
+
+    .badge-error {
+      background: #fef2f2;
+      color: #dc2626;
+    }
+
+    .badge-dup {
+      background: #faf5ff;
+      color: #7c3aed;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      display: inline-block;
+    }
+
+    .spinning {
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .filters {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .filters input, .filters select {
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      font-size: 13px;
+      background: white;
+      color: #1a1a1a;
+    }
+
+    .filters input:focus, .filters select:focus {
+      outline: none;
+      border-color: #3b82f6;
+    }
+
+    .table-wrap {
+      background: white;
+      border-radius: 12px;
+      overflow: auto;
+      border: 1px solid #e2e8f0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead tr {
+      background: #f8fafc;
+    }
+
+    th {
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 600;
+      color: #64748b;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: #f8fafc;
+    }
+
+    .amount {
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+      font-weight: 500;
+    }
+
+    .stats-bar {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      background: white;
+      border-radius: 10px;
+      padding: 14px 18px;
+      border: 1px solid #e2e8f0;
+      flex: 1;
+      min-width: 110px;
+    }
+
+    .stat-card .val {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1e293b;
+    }
+
+    .stat-card .lbl {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+
+    .empty {
+      text-align: center;
+      padding: 40px;
+      color: #94a3b8;
+      font-size: 14px;
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+    <rect width="28" height="28" rx="7" fill="#3b82f6"/>
+    <path d="M7 8h14M7 13h10M7 18h8" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  </svg>
+
+  <h1>DocFlow</h1>
+  <span>Реестры платежей</span>
+</header>
+
+<div class="container"
+  <div class="section-title">Статистика</div>
+  <div class="stats-bar" id="stats-bar">
+    <div class="stat-card"><div class="val" id="s-total">—</div><div class="lbl">Всего файлов</div></div>
+    <div class="stat-card"><div class="val" id="s-done">—</div><div class="lbl">Обработано</div></div>
+    <div class="stat-card"><div class="val" id="s-proc">—</div><div class="lbl">В очереди</div></div>
+    <div class="stat-card"><div class="val" id="s-err">—</div><div class="lbl">Ошибок</div></div>
+    <div class="stat-card"><div class="val" id="s-cache">—</div><div class="lbl">Hit-rate кэша</div></div>
+    <div class="stat-card"><div class="val" id="s-lines">—</div><div class="lbl">Строк платежей</div></div>
+  </div>
+
+  <div class="drop-zone" id="drop-zone">
+    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style="margin:0 auto 12px;display:block">
+      <path d="M20 8v16M13 15l7-7 7 7" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M8 28h24" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+
+    <strong>Перетащите .xlsx файлы сюда</strong>
+    <p>или <button class="btn btn-primary btn-sm" onclick="document.getElementById('file-input').click()">выберите файлы</button></p>
+    <input type="file" id="file-input" accept=".xlsx" multiple>
+  </div>
+
+  <div id="files-section" style="display: none">
+    <div style="display: flex; align-items: center; justify-content: space-between">
+      <div class="section-title" style="margin-bottom: 0">Загруженные файлы</div>
+      <button class="btn btn-sm" style="background: #f1f5f9; color: #64748b" onclick="clearList()">Очистить</button>
+    </div>
+
+    <div class="files-list" id="files-list"></div>
+  </div>
+
+  <div class="section-title">Результаты поиска</div>
+
+  <div class="filters">
+    <input type="text" id="f-inn" placeholder="ИНН поставщика" style="width: 160px">
+    <input type="date" id="f-from" placeholder="Дата с">
+    <input type="date" id="f-to" placeholder="Дата по">
+
+    <button class="btn btn-primary" onclick="loadResults()">Найти</button>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Поставщик</th>
+          <th>ИНН</th>
+          <th>Реестр №</th>
+          <th>Дата реестра</th>
+          <th>Назначение платежа</th>
+          <th>Дата платежа</th>
+          <th class="amount">Сумма, руб</th>
+        </tr>
+      </thead>
+
+      <tbody id="results-body">
+        <tr>
+          <td colspan="7" class="empty">Нажмите «Найти» для загрузки данных</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  const API = '';
+  const trackedFiles = {};  // id → {name, status, ...}
+  const zone = document.getElementById('drop-zone');
+
+  zone.addEventListener('dragover', e => {
+    e.preventDefault();
+    zone.classList.add('dragover');
+  });
+
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    handleFiles([...e.dataTransfer.files]);
+  });
+
+  document.getElementById('file-input').addEventListener('change', e => {
+    handleFiles([...e.target.files]);
+    e.target.value = '';
+  });
+
+  async function handleFiles(files) {
+    const xlsx = files.filter(f => f.name.endsWith('.xlsx'));
+
+    if (!xlsx.length) {
+      return;
+    }
+
+    const form = new FormData();
+    xlsx.forEach(f => form.append('files', f));
+
+    try {
+      const res = await fetch(API + '/files', { method: 'POST', body: form });
+
+      if (!res.ok) {
+        throw new Error(await res.text());
+      }
+
+      const items = await res.json();
+
+      items.forEach(item => {
+        trackedFiles[item.id] = item;
+        renderFileCard(item);
+      });
+
+      document.getElementById('files-section').style.display = 'block';
+
+      schedulePolling();
+    } catch(e) {
+      alert('Ошибка загрузки: ' + e.message);
+    }
+  }
+
+  function renderFileCard(item) {
+    const list = document.getElementById('files-list');
+    let el = document.getElementById('fc-' + item.id);
+
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'file-card';
+      el.id = 'fc-' + item.id;
+      list.prepend(el);
+    }
+
+    const badgeClass = item.is_duplicate ? 'badge-dup' : ('badge-' + item.status);
+    const badgeText = item.is_duplicate ? '⚡ Кэш' : statusLabel(item.status);
+    const spinning = item.status === 'processing' ? ' spinning' : '';
+
+    let detail = '';
+    if (item.supplier_name) detail = item.supplier_name + ' · ' + (item.total_amount || 0).toLocaleString('ru') + ' ₽';
+    if (item.error_message) detail = '⚠ ' + item.error_message.slice(0, 80);
+
+    el.innerHTML = `
+      <div class="name" title="${item.filename}">
+        ${item.filename}
+      </div>
+
+      ${detail ? `<div class="meta">${detail}</div>` : ''}
+
+      <span class="badge ${badgeClass}">
+        <span class="dot${spinning}"></span>
+        ${badgeText}
+      </span>
+    `;
+  }
+
+  function statusLabel(s) {
+    return {pending: 'Ожидание', processing: 'Обработка...', done: 'Готово', error: 'Ошибка'}[s] || s;
+  }
+
+  let pollTimer = null;
+
+  function schedulePolling() {
+    if (pollTimer) {
+      return;
+    }
+
+    pollTimer = setInterval(pollPending, 3000);
+  }
+
+  async function pollPending() {
+    const pending = Object.values(trackedFiles).filter(f => ['pending','processing'].includes(f.status));
+
+    if (!pending.length) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+      updateStats();
+
+      return;
+    }
+    for (const item of pending) {
+      try {
+        const res = await fetch(API + '/files/' + item.id);
+
+        if (!res.ok) {
+          continue;
+        }
+
+        const updated = await res.json();
+        trackedFiles[item.id] = updated;
+        renderFileCard(updated);
+      } catch(e) {
+
+      }
+    }
+
+    updateStats();
+  }
+
+  async function loadResults() {
+    const inn = document.getElementById('f-inn').value.trim();
+    const from = document.getElementById('f-from').value;
+    const to = document.getElementById('f-to').value;
+    let url = API + '/results?limit=200';
+
+    if (inn) {
+      url += '&supplier_inn=' + encodeURIComponent(inn);
+    }
+
+    if (from) {
+      url += '&date_from=' + from;
+    }
+
+    if (to) {
+      url += '&date_to=' + to;
+    }
+
+    try {
+      const res = await fetch(url);
+      const rows = await res.json();
+
+      renderResults(rows);
+    } catch(e) {
+      alert('Ошибка: ' + e.message);
+    }
+  }
+
+  function renderResults(rows) {
+    const tbody = document.getElementById('results-body');
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">Ничего не найдено</td></tr>';
+
+      return;
+    }
+
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td>${r.supplier_name || '—'}</td>
+        <td style="font-family:monospace;font-size:12px">${r.supplier_inn}</td>
+        <td>№${r.registry_number}</td>
+        <td>${formatDate(r.registry_date)}</td>
+        <td>${r.purpose}</td>
+        <td>${formatDate(r.payment_date)}</td>
+        <td class="amount">${r.amount.toLocaleString('ru', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+      </tr>
+    `).join('');
+  }
+
+  async function updateStats() {
+    try {
+      const res = await fetch(API + '/stats');
+      const s = await res.json();
+
+      document.getElementById('s-total').textContent = s.total_files;
+      document.getElementById('s-done').textContent = s.done;
+      document.getElementById('s-proc').textContent = s.pending + s.processing;
+      document.getElementById('s-err').textContent = s.error;
+      document.getElementById('s-cache').textContent = (s.cache_hit_rate * 100).toFixed(0) + '%';
+      document.getElementById('s-lines').textContent = s.total_payment_lines.toLocaleString('ru');
+    } catch(e) {
+
+    }
+  }
+
+  function formatDate(d) {
+    if (!d) {
+      return '-';
+    }
+
+    const [y,m,day] = d.split('-');
+
+    return `${day}.${m}.${y}`;
+  }
+
+  function clearList() {
+    document.getElementById('files-list').innerHTML = '';
+    document.getElementById('files-section').style.display = 'none';
+  }
+
+  updateStats();
+
+  setInterval(updateStats, 10000);
+</script>
+</body>
+</html>
